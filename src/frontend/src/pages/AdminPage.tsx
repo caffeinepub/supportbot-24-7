@@ -82,8 +82,7 @@ function AdminUnauthorized() {
             Admin Access Required
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            This dashboard is restricted to administrators. Please log in with
-            your admin identity.
+            Please log in to access the admin dashboard.
           </p>
           <Button
             className="w-full gap-2"
@@ -106,13 +105,31 @@ function AdminUnauthorized() {
 
 function ClaimAdminCard() {
   const claimAdmin = useClaimAdmin();
+  const [claimed, setClaimed] = useState(false);
 
   const handleClaim = async () => {
     try {
       await claimAdmin.mutateAsync();
-      toast.success("Admin role granted! Refreshing...");
-    } catch {
-      toast.error("Failed to claim admin role");
+      setClaimed(true);
+      toast.success("Admin access granted! Reloading...");
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err: any) {
+      const msg = err?.message ?? "";
+      if (msg.includes("Admin already exists")) {
+        toast.error(
+          "An admin already exists. Contact the existing admin for access.",
+        );
+      } else {
+        // Retry once silently
+        try {
+          await claimAdmin.mutateAsync();
+          setClaimed(true);
+          toast.success("Admin access granted!");
+          setTimeout(() => window.location.reload(), 1500);
+        } catch {
+          toast.error("Could not claim admin. Please try again.");
+        }
+      }
     }
   };
 
@@ -131,20 +148,26 @@ function ClaimAdminCard() {
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
             You are logged in but don't have admin access yet. Click below to
-            grant yourself the admin role.
+            grant yourself the admin role (available for first-time setup).
           </p>
           <Button
             className="w-full gap-2"
             onClick={handleClaim}
-            disabled={claimAdmin.isPending}
+            disabled={claimAdmin.isPending || claimed}
             data-ocid="admin.claim.button"
           >
             {claimAdmin.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : claimed ? (
+              <CheckCircle2 className="w-4 h-4" />
             ) : (
               <ShieldCheck className="w-4 h-4" />
             )}
-            {claimAdmin.isPending ? "Granting..." : "Claim Admin"}
+            {claimAdmin.isPending
+              ? "Granting..."
+              : claimed
+                ? "Access Granted!"
+                : "Claim Admin"}
           </Button>
         </CardContent>
       </Card>
@@ -660,6 +683,7 @@ export default function AdminPage() {
                       variant="ghost"
                       size="sm"
                       className="gap-1.5 h-7"
+                      onClick={() => window.location.reload()}
                       data-ocid="admin.tickets.button"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />

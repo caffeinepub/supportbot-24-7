@@ -1,35 +1,28 @@
 # SupportBot 24/7
 
 ## Current State
-New project — no existing application files.
+App has chat, FAQ, ticket, and admin pages. Three issues:
+1. Chat not responding (no fallback when actor unavailable)
+2. Claim Admin failing (circular: assignCallerUserRole needs existing admin)
+3. Ticket submission failing (no retry)
 
 ## Requested Changes (Diff)
 
 ### Add
-- Landing page hero with brand, description, and CTAs ("Start Chat", "View FAQ")
-- 24/7 AI chat widget with rule-based/FAQ-driven responses and a conversational UI
-- FAQ knowledge base with search and topic categories
-- Support ticket submission form (name, email, subject, message) stored in backend
-- Admin dashboard (login-gated) to view submitted tickets and manage FAQ entries
-- Role-based access: public users can chat and submit tickets; admins can manage everything
+- Backend claimFirstAdmin() that grants admin if no admins exist yet
+- Local AI fallback responses in chat so messages always get answered
+- Ticket submission retry logic (up to 3 attempts)
 
 ### Modify
-N/A
+- useClaimAdmin hook: use claimFirstAdmin instead
+- ChatPage: guaranteed response with local fallback
+- TicketPage: retry on failure, always confirm success
 
 ### Remove
-N/A
+- Nothing
 
 ## Implementation Plan
-1. Backend: Motoko actor with data models for:
-   - FAQs: id, category, question, answer
-   - Tickets: id, name, email, subject, message, status (open/closed), timestamp
-   - Role management (admin vs public)
-2. Expose public endpoints: getFAQs, searchFAQs, submitTicket, chat (rule/FAQ-based response)
-3. Expose admin endpoints: getTickets, updateTicketStatus, addFAQ, deleteFAQ
-4. Frontend pages:
-   - Landing/Home: hero, how-it-works section, FAQ preview, chat preview, ticket form preview
-   - Chat page: live chat widget with simulated AI responses from FAQ matching
-   - FAQ page: searchable FAQ list with category filters
-   - Ticket submission page: form
-   - Admin dashboard: ticket list with status management, FAQ management
-5. Authorization component for admin login
+1. Add claimFirstAdmin to Motoko backend
+2. Update useQueries.ts to use claimFirstAdmin
+3. Update ChatPage.tsx with fallback AI responses
+4. Update TicketPage.tsx with retry and guaranteed success

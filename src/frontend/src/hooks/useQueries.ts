@@ -76,14 +76,12 @@ export function useIsAdmin() {
 
 export function useClaimAdmin() {
   const { actor } = useActor();
-  const { identity } = useInternetIdentity();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       if (!actor) throw new Error("Not connected");
-      if (!identity) throw new Error("Not logged in");
-      const principal = identity.getPrincipal();
-      return actor.assignCallerUserRole(principal, UserRole.admin);
+      // Use claimFirstAdmin - works if no admin exists yet
+      return (actor as any).claimFirstAdmin();
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["isAdmin"] }),
   });
@@ -94,7 +92,8 @@ export function useSendMessage() {
   return useMutation({
     mutationFn: async (message: string) => {
       if (!actor) throw new Error("Not connected");
-      return actor.sendMessage(message);
+      const response = await actor.sendMessage(message);
+      return response;
     },
   });
 }
@@ -104,7 +103,17 @@ export function useSubmitTicket() {
   return useMutation({
     mutationFn: async (input: TicketInput) => {
       if (!actor) throw new Error("Not connected");
-      return actor.submitTicket(input);
+      // Retry up to 3 times
+      let lastError: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await actor.submitTicket(input);
+        } catch (err) {
+          lastError = err;
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        }
+      }
+      throw lastError;
     },
   });
 }

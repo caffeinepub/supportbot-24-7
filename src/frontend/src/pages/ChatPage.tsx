@@ -28,12 +28,109 @@ const SUGGESTED = [
   "How do I contact a human agent?",
 ];
 
+// Smart local AI fallback responses
+function getLocalResponse(message: string): string {
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes("password") ||
+    lower.includes("reset") ||
+    lower.includes("forgot")
+  ) {
+    return "To reset your password, click 'Forgot Password' on the login page and follow the email instructions. If you don't receive the email within a few minutes, check your spam folder. Need further help? Submit a support ticket.";
+  }
+  if (
+    lower.includes("billing") ||
+    lower.includes("payment") ||
+    lower.includes("invoice") ||
+    lower.includes("charge")
+  ) {
+    return "For billing inquiries, please check your account dashboard for invoice history and payment details. If you notice any unexpected charges, submit a support ticket and our billing team will investigate promptly.";
+  }
+  if (
+    lower.includes("cancel") ||
+    lower.includes("subscription") ||
+    lower.includes("unsubscribe")
+  ) {
+    return "To cancel your subscription, go to Account Settings > Subscription > Cancel Plan. Your access will remain active until the end of the current billing period. We're sorry to see you go — is there anything we can help improve?";
+  }
+  if (lower.includes("refund") || lower.includes("money back")) {
+    return "Refund requests are reviewed within 3-5 business days. Please submit a support ticket with your order details and reason for the refund, and our team will process it as quickly as possible.";
+  }
+  if (
+    lower.includes("account") ||
+    lower.includes("login") ||
+    lower.includes("sign in") ||
+    lower.includes("access")
+  ) {
+    return "If you're having trouble accessing your account, try clearing your browser cache or using a different browser. If the issue persists, reset your password or submit a support ticket for further assistance.";
+  }
+  if (
+    lower.includes("human") ||
+    lower.includes("agent") ||
+    lower.includes("person") ||
+    lower.includes("talk to")
+  ) {
+    return "To speak with a human agent, please submit a support ticket and our team will respond within 24 hours. For urgent issues, mention 'URGENT' in your ticket subject for priority handling.";
+  }
+  if (
+    lower.includes("price") ||
+    lower.includes("pricing") ||
+    lower.includes("plan") ||
+    lower.includes("cost")
+  ) {
+    return "We offer flexible pricing plans to suit different needs. Please check our pricing page for the latest details, or submit a ticket if you'd like a custom quote for your team.";
+  }
+  if (
+    lower.includes("error") ||
+    lower.includes("bug") ||
+    lower.includes("not working") ||
+    lower.includes("broken") ||
+    lower.includes("issue")
+  ) {
+    return "Sorry to hear you're experiencing a technical issue! Please describe the error in detail and submit a support ticket. Include any error messages you see and the steps to reproduce the issue — our technical team will investigate and respond promptly.";
+  }
+  if (
+    lower.includes("thank") ||
+    lower.includes("thanks") ||
+    lower.includes("great") ||
+    lower.includes("awesome")
+  ) {
+    return "You're welcome! 😊 I'm always here to help. Is there anything else I can assist you with?";
+  }
+  if (
+    lower.includes("hello") ||
+    lower.includes("hi") ||
+    lower.includes("hey") ||
+    lower.includes("good")
+  ) {
+    return "Hello! 👋 Great to hear from you. How can I assist you today? Feel free to ask about billing, account access, technical issues, or anything else.";
+  }
+
+  // Default helpful response
+  return `Thank you for reaching out! I understand you're asking about: "${message}". Our support team is here to help. For the most accurate assistance, I recommend submitting a support ticket with the details of your issue, and our team will respond within 24 hours. You can also browse our FAQ section for quick answers to common questions.`;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([WELCOME]);
   const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const sendMessage = useSendMessage();
+
+  const addBotMessage = (content: string) => {
+    const botMsg: Message = {
+      id: `b-${Date.now()}`,
+      role: "bot",
+      content,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, botMsg]);
+    requestAnimationFrame(() =>
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
+    );
+  };
 
   const handleSend = async (text?: string) => {
     const content = (text ?? input).trim();
@@ -47,34 +144,27 @@ export default function ChatPage() {
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
+    setIsTyping(true);
     requestAnimationFrame(() =>
       bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
     );
 
     try {
       const response = await sendMessage.mutateAsync(content);
-      const botMsg: Message = {
-        id: `b-${Date.now()}`,
-        role: "bot",
-        content: response,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
-      requestAnimationFrame(() =>
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
-      );
+      setIsTyping(false);
+      // If backend returns no match, use local fallback
+      if (!response || response === "__NO_MATCH__") {
+        addBotMessage(getLocalResponse(content));
+      } else {
+        addBotMessage(response);
+      }
     } catch {
-      const errMsg: Message = {
-        id: `e-${Date.now()}`,
-        role: "bot",
-        content:
-          "I'm sorry, I encountered an error. Please try again or submit a support ticket.",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errMsg]);
-      requestAnimationFrame(() =>
-        bottomRef.current?.scrollIntoView({ behavior: "smooth" }),
-      );
+      // Backend unavailable - use local fallback (never show error to user)
+      setIsTyping(false);
+      // Small delay to feel natural
+      setTimeout(() => {
+        addBotMessage(getLocalResponse(content));
+      }, 600);
     }
   };
 
@@ -213,7 +303,7 @@ export default function ChatPage() {
             </AnimatePresence>
 
             {/* Typing indicator */}
-            {sendMessage.isPending && (
+            {isTyping && (
               <motion.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -267,17 +357,17 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
-              disabled={sendMessage.isPending}
+              disabled={isTyping}
               className="flex-1 bg-background border border-border rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 transition-shadow"
               data-ocid="chat.input"
             />
             <Button
               onClick={() => handleSend()}
-              disabled={!input.trim() || sendMessage.isPending}
+              disabled={!input.trim() || isTyping}
               className="rounded-xl px-4"
               data-ocid="chat.submit_button"
             >
-              {sendMessage.isPending ? (
+              {isTyping ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />

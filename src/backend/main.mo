@@ -67,6 +67,22 @@ actor {
     };
   };
 
+  // Claim first admin - anyone can call this if no admins exist yet
+  public shared ({ caller }) func claimFirstAdmin() : async Bool {
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      return true; // Already admin
+    };
+    // Check if any admins exist using userRoles map
+    let hasAdmin = accessControlState.userRoles.entries().any(
+      func((_, role)) { role == #admin }
+    );
+    if (hasAdmin) {
+      Runtime.trap("Admin already exists. Contact existing admin for access.");
+    };
+    accessControlState.userRoles.add(caller, #admin);
+    true;
+  };
+
   // User Profile Management
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
@@ -208,6 +224,6 @@ actor {
       );
       return "Here are some FAQs that might help:\n" # formattedFaqs.values().join("\n\n");
     };
-    "I'm sorry, I couldn't find an answer to your question. I'll connect you with a human agent shortly.";
+    "__NO_MATCH__";
   };
 };
