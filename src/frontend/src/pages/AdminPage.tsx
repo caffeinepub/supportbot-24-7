@@ -33,6 +33,7 @@ import {
   useAddFaq,
   useAllFaqs,
   useAllTickets,
+  useClaimAdmin,
   useDeleteFaq,
   useIsAdmin,
   useUpdateFaq,
@@ -96,6 +97,54 @@ function AdminUnauthorized() {
               <LogIn className="w-4 h-4" />
             )}
             {isLoggingIn ? "Connecting..." : "Log In to Continue"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function ClaimAdminCard() {
+  const claimAdmin = useClaimAdmin();
+
+  const handleClaim = async () => {
+    try {
+      await claimAdmin.mutateAsync();
+      toast.success("Admin role granted! Refreshing...");
+    } catch {
+      toast.error("Failed to claim admin role");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card
+        className="w-full max-w-sm border-border shadow-card text-center"
+        data-ocid="admin.claim_card"
+      >
+        <CardContent className="p-8">
+          <div className="w-14 h-14 rounded-full bg-accent flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-7 h-7 text-primary" />
+          </div>
+          <h2 className="font-display text-xl font-bold text-foreground mb-2">
+            Claim Admin Role
+          </h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            You are logged in but don't have admin access yet. Click below to
+            grant yourself the admin role.
+          </p>
+          <Button
+            className="w-full gap-2"
+            onClick={handleClaim}
+            disabled={claimAdmin.isPending}
+            data-ocid="admin.claim.button"
+          >
+            {claimAdmin.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ShieldCheck className="w-4 h-4" />
+            )}
+            {claimAdmin.isPending ? "Granting..." : "Claim Admin"}
           </Button>
         </CardContent>
       </Card>
@@ -526,27 +575,7 @@ export default function AdminPage() {
   }
 
   if (!isAdminQuery.data) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card
-          className="w-full max-w-sm border-border shadow-card text-center"
-          data-ocid="admin.error_state"
-        >
-          <CardContent className="p-8">
-            <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-              <ShieldCheck className="w-7 h-7 text-destructive" />
-            </div>
-            <h2 className="font-display text-xl font-bold text-foreground mb-2">
-              Unauthorized
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Your account does not have admin privileges. Contact your
-              administrator for access.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
+    return <ClaimAdminCard />;
   }
 
   return (

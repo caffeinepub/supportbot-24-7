@@ -8,7 +8,9 @@ import type {
   TicketInput,
   TicketUpdateInput,
 } from "../backend.d";
+import { UserRole } from "../backend.d";
 import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 export function useAllFaqs() {
   const { actor, isFetching } = useActor();
@@ -69,6 +71,21 @@ export function useIsAdmin() {
       return actor.isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
+  });
+}
+
+export function useClaimAdmin() {
+  const { actor } = useActor();
+  const { identity } = useInternetIdentity();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not connected");
+      if (!identity) throw new Error("Not logged in");
+      const principal = identity.getPrincipal();
+      return actor.assignCallerUserRole(principal, UserRole.admin);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["isAdmin"] }),
   });
 }
 
